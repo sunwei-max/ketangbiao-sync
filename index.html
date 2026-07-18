@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>手机同步 · 课程表</title>
+<style>
+  body{font-family:Microsoft YaHei,sans-serif;background:#111;color:#eee;max-width:480px;margin:0 auto;padding:18px}
+  h2{color:#7fd1ff;margin-top:6px}
+  p{color:#9aa;font-size:14px}
+  label{display:block;margin-top:12px;color:#ccc}
+  input,textarea{width:100%;box-sizing:border-box;padding:10px;margin-top:4px;background:#222;color:#fff;border:1px solid #444;border-radius:6px;font-size:15px}
+  button{width:100%;padding:14px;margin-top:18px;font-size:17px;background:#2e8bff;color:#fff;border:0;border-radius:8px}
+  #status{margin-top:14px;font-size:14px;min-height:20px}
+  .ok{color:#7CFC00}.err{color:#ff6b6b}.wait{color:#7fd1ff}
+</style>
+</head>
+<body>
+<h2>手机同步填写</h2>
+<p>本页通过公共 MQTT 服务，把数据发到你的电脑看板（全程无需访问电脑）。</p>
+<label>竖排标语 / 留言：</label>
+<textarea id="t" rows="3"></textarea>
+<label>请假学生（逗号分隔）：</label>
+<input id="leave" type="text">
+<label>应到人数（可选，留空不改）：</label>
+<input id="expected" type="text">
+<button id="send">提交同步</button>
+<div id="status" class="wait">连接中…</div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var topic = params.get('t') || 'zky_default';
+  var statusEl = document.getElementById('status');
+  var WS_URL = 'wss://broker.emqx.io:8084/mqtt';
+
+  // 回填上次填写（本地缓存，方便课间修改）
+  try {
+    document.getElementById('t').value = localStorage.getItem('ziyan_t') || '';
+    document.getElementById('leave').value = localStorage.getItem('ziyan_leave') || '';
+    document.getElementById('expected').value = localStorage.getItem('ziyan_expected') || '';
+  } catch(e){}
+
+  function utf8(str){ return Array.from(new TextEncoder().encode(str)); }
+  function remaining(len){ var r=[]; do{ var b=len&0x7f; len=len>>7; if(len>0) b|=0x80; r.push(b); }while(len>0); return r; }
+  function buildConnect(){
+    var proto = utf8('MQTT');
+    var cid = utf8('phone' + Date.now() + Math.floor(Math.random()*1e4));
+    var varH = [0,4].concat(proto, [4, 2, 0, 60]); // protoName len + name + level + flags(clean) + keepAlive
+    var payload = [(cid.length>>8)&0xff, cid.length&0xff].concat(cid);
+    var rem = varH.length + payload.length;
+    return new Uint8Array([0x10].concat(remaining(rem), varH, payload));
+  }
+  function buildPublish(tp, pl){
+    var t = utf8(tp), p = utf8(pl);
+    var varH = [(t.length>>8)&0xff, t.length&0xff].concat(t);
+    var rem = varH.length + p.length;
+    return new Uint8Array([0x31].concat(remaining(rem), varH, p)); // 0x31 = PUBLISH + retain
+  }
+
+  var ws = null, connected = false, pending = null;
+  function connectAndSend(msg){
+    statusEl.className = 'wait'; statusEl.textContent = '连接公共服务器中…';
+    ws = new WebSocket(WS_URL, ['mqtt']);
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = function(){ ws.send(buildConnect()); };
+    ws.onmessage = function(ev){
+      var d = new Uint8Array(ev.data);
+      var type = d[0] >> 4;
+      if(type === 2){ // CONNACK
+        connected = true;
+        var payload = JSON.stringify({ t: document.getElementById('t').value, leave: document.getElementById('leave').value, expected: document.getElementById('expected').value });
+        try {
+          ws.send(buildPublish(topic, payload));
+          statusEl.className = 'ok'; statusEl.textContent = '✓ 已提交，电脑看板即将更新';
+          setTimeout(function(){ if(ws) ws.close(); }, 600);
+        } catch(e){ statusEl.className='err'; statusEl.textContent = '发送失败：' + e.message; }
+      }
+    };
+    ws.onerror = function(){ statusEl.className='err'; statusEl.textContent = '连接失败，请检查手机网络后重试'; };
+    ws.onclose = function(){ connected = false; };
+  }
+
+  document.getElementById('send').onclick = function(){
+    var t = document.getElementById('t').value;
+    var lv = document.getElementById('leave').value;
+    var ex = document.getElementById('expected').value;
+    try { localStorage.setItem('ziyan_t', t); localStorage.setItem('ziyan_leave', lv); localStorage.setItem('ziyan_expected', ex); } catch(e){}
+    var msg = JSON.stringify({ t: t, leave: lv, expected: ex });
+    if(connected && ws && ws.readyState === 1){ ws.send(buildPublish(topic, msg)); statusEl.className='ok'; statusEl.textContent='✓ 已提交，电脑看板即将更新'; }
+    else { connectAndSend(msg); }
+  };
+})();
+</script>
+</body>
+</html>
