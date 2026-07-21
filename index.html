@@ -1,96 +1,337 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>手机同步 · 课程表</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>手机同步填写</title>
 <style>
-  body{font-family:Microsoft YaHei,sans-serif;background:#111;color:#eee;max-width:480px;margin:0 auto;padding:18px}
-  h2{color:#7fd1ff;margin-top:6px}
-  p{color:#9aa;font-size:14px}
-  label{display:block;margin-top:12px;color:#ccc}
-  input,textarea{width:100%;box-sizing:border-box;padding:10px;margin-top:4px;background:#222;color:#fff;border:1px solid #444;border-radius:6px;font-size:15px}
-  button{width:100%;padding:14px;margin-top:18px;font-size:17px;background:#2e8bff;color:#fff;border:0;border-radius:8px}
-  #status{margin-top:14px;font-size:14px;min-height:20px}
-  .ok{color:#7CFC00}.err{color:#ff6b6b}.wait{color:#7fd1ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#f4f6f8;color:#1f2329;
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif;
+    min-height:100vh;-webkit-font-smoothing:antialiased}
+  /* 顶部状态条：蓝=连接中，绿=已连接，红=错误。绝不用灰色表示“未连接” */
+  #status{position:sticky;top:0;z-index:9;text-align:center;font-size:13px;font-weight:600;
+    padding:10px 14px;background:#fff;border-bottom:1px solid #eceef1;color:#3a7bd5;
+    box-shadow:0 1px 2px rgba(0,0,0,0.04)}
+  #status.ok{color:#00b42a} #status.err{color:#f53f3f}
+  .wrap{max-width:460px;margin:0 auto;padding:24px 20px 48px}
+  h1{font-size:23px;font-weight:700;margin-bottom:8px;letter-spacing:-0.3px}
+  .desc{color:#5e6b7a;font-size:13px;margin-bottom:20px;line-height:1.75}
+  /* 实时看板内容卡片 */
+  .live{background:linear-gradient(145deg,#1a1d25 0%,#0f1115 100%);border-radius:18px;
+    padding:18px 18px 16px;color:#e8eef7;margin-bottom:22px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.06)}
+  .live .cap{font-size:12px;color:#9fbfff;margin-bottom:14px;font-weight:700;
+    letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+  .live .cap::before{content:'';display:inline-block;width:7px;height:7px;background:#4ade80;
+    border-radius:50%;box-shadow:0 0 0 4px rgba(74,222,128,0.18)}
+  .live .row{display:grid;grid-template-columns:max-content 1fr;gap:16px;align-items:start;
+    padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+  .live .row:last-child{border-bottom:none}
+  .live .k{color:#9aa4b2;font-size:14px;white-space:nowrap;padding-top:1px}
+  .live .v{color:#fff;font-size:15.5px;font-weight:500;min-width:0;
+    word-break:break-word;white-space:pre-wrap;line-height:1.6}
+  .live .v.dim{color:#5b6472;font-weight:400}
+  /* 说明卡片 */
+  .note{background:#eef5ff;border:1px solid #d6e6ff;color:#2b6fff;
+    border-radius:14px;padding:13px 16px;font-size:13px;line-height:1.8;margin-bottom:22px}
+  /* 输入区：卡片式，更显眼 */
+  .field{background:#fff;border:1px solid #eaecef;border-radius:16px;
+    padding:16px 16px 14px;margin-bottom:16px;box-shadow:0 2px 12px rgba(0,0,0,0.04)}
+  .field label{display:block;font-size:14px;color:#1f2329;margin-bottom:10px;font-weight:600}
+  .field textarea,.field input{width:100%;background:#f8f9fa;color:#1f2329;
+    border:1px solid #e5e6eb;border-radius:11px;padding:13px 14px;
+    font:16px/1.55 -apple-system,"Microsoft YaHei",sans-serif;outline:none;
+    transition:all .15s;box-shadow:inset 0 1px 2px rgba(0,0,0,0.03)}
+  .field textarea{resize:vertical;min-height:72px}
+  .field textarea:focus,.field input:focus{background:#fff;border-color:#3a7bd5;
+    box-shadow:0 0 0 3px rgba(58,123,213,0.12),inset 0 1px 2px rgba(0,0,0,0.03)}
+  .field .tip{font-size:12px;color:#86909c;margin-top:9px;line-height:1.65}
+  .submit{width:100%;border:none;border-radius:14px;padding:14px 0;
+    font-size:16px;font-weight:600;color:#fff;cursor:pointer;margin-top:6px;
+    background:linear-gradient(135deg,#3a7bd5 0%,#2f66b3 100%);box-shadow:0 4px 14px rgba(58,123,213,0.35)}
+  .submit:active{transform:translateY(1px);box-shadow:0 2px 8px rgba(58,123,213,0.3)}
+  .submit:disabled{opacity:.55;cursor:default;transform:none;box-shadow:none}
+  .reload{display:block;width:100%;margin-top:10px;border:1px solid #d9e2ef;background:#fff;
+    color:#5e6b7a;font-size:13px;font-weight:500;padding:10px 0;border-radius:12px;cursor:pointer}
+  .reload:active{background:#f4f6f8}
+  .hint{text-align:center;color:#86909c;font-size:12.5px;margin-top:14px;min-height:18px}
+  /* 线路指示灯：蓝=连接中，绿=已连接。不使用灰色避免误以为离线 */
+  .links{display:flex;gap:7px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+  .pill{font-size:11px;padding:4px 10px;border-radius:20px;background:#eaf1ff;color:#3a7bd5;font-weight:500}
+  .pill.on{background:#e8fbee;color:#00b42a}
+  /* 同步口令：用浅色信息框呈现，避免看起来像失效的灰色链接 */
+  .foot{margin-top:18px;background:#f7f8fa;border:1px solid #e5e6eb;border-radius:12px;
+    padding:10px 14px;color:#4e5969;font-size:12px;text-align:center;word-break:break-all}
+  .qq{margin-top:18px;background:#fff;border:1px solid #eceef1;border-radius:14px;
+    padding:16px 18px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,0.03)}
+  .qq b{color:#3a7bd5;font-size:18px;letter-spacing:0.5px}
+  .qq .t{font-size:12.5px;color:#86909c;margin-bottom:5px}
 </style>
-</head>
-<body>
-<h2>手机同步填写</h2>
-<p>本页通过公共 MQTT 服务，把数据发到你的电脑看板（全程无需访问电脑）。</p>
-<label>竖排标语 / 留言：</label>
-<textarea id="t" rows="3"></textarea>
-<label>请假学生（逗号分隔）：</label>
-<input id="leave" type="text">
-<label>应到人数（可选，留空不改）：</label>
-<input id="expected" type="text">
-<button id="send">提交同步</button>
-<div id="status" class="wait">连接中…</div>
-
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
 <script>
 (function(){
-  var params = new URLSearchParams(location.search);
-  var topic = params.get('t') || 'zky_default';
-  var statusEl = document.getElementById('status');
-  var WS_URL = 'wss://broker.emqx.io:8084/mqtt';
-
-  // 回填上次填写（本地缓存，方便课间修改）
-  try {
-    document.getElementById('t').value = localStorage.getItem('ziyan_t') || '';
-    document.getElementById('leave').value = localStorage.getItem('ziyan_leave') || '';
-    document.getElementById('expected').value = localStorage.getItem('ziyan_expected') || '';
-  } catch(e){}
-
-  function utf8(str){ return Array.from(new TextEncoder().encode(str)); }
-  function remaining(len){ var r=[]; do{ var b=len&0x7f; len=len>>7; if(len>0) b|=0x80; r.push(b); }while(len>0); return r; }
-  function buildConnect(){
-    var proto = utf8('MQTT');
-    var cid = utf8('phone' + Date.now() + Math.floor(Math.random()*1e4));
-    var varH = [0,4].concat(proto, [4, 2, 0, 60]); // protoName len + name + level + flags(clean) + keepAlive
-    var payload = [(cid.length>>8)&0xff, cid.length&0xff].concat(cid);
-    var rem = varH.length + payload.length;
-    return new Uint8Array([0x10].concat(remaining(rem), varH, payload));
-  }
-  function buildPublish(tp, pl){
-    var t = utf8(tp), p = utf8(pl);
-    var varH = [(t.length>>8)&0xff, t.length&0xff].concat(t);
-    var rem = varH.length + p.length;
-    return new Uint8Array([0x31].concat(remaining(rem), varH, p)); // 0x31 = PUBLISH + retain
-  }
-
-  var ws = null, connected = false, pending = null;
-  function connectAndSend(msg){
-    statusEl.className = 'wait'; statusEl.textContent = '连接公共服务器中…';
-    ws = new WebSocket(WS_URL, ['mqtt']);
-    ws.binaryType = 'arraybuffer';
-    ws.onopen = function(){ ws.send(buildConnect()); };
-    ws.onmessage = function(ev){
-      var d = new Uint8Array(ev.data);
-      var type = d[0] >> 4;
-      if(type === 2){ // CONNACK
-        connected = true;
-        var payload = JSON.stringify({ t: document.getElementById('t').value, leave: document.getElementById('leave').value, expected: document.getElementById('expected').value });
-        try {
-          ws.send(buildPublish(topic, payload));
-          statusEl.className = 'ok'; statusEl.textContent = '✓ 已提交，电脑看板即将更新';
-          setTimeout(function(){ if(ws) ws.close(); }, 600);
-        } catch(e){ statusEl.className='err'; statusEl.textContent = '发送失败：' + e.message; }
-      }
-    };
-    ws.onerror = function(){ statusEl.className='err'; statusEl.textContent = '连接失败，请检查手机网络后重试'; };
-    ws.onclose = function(){ connected = false; };
-  }
-
-  document.getElementById('send').onclick = function(){
-    var t = document.getElementById('t').value;
-    var lv = document.getElementById('leave').value;
-    var ex = document.getElementById('expected').value;
-    try { localStorage.setItem('ziyan_t', t); localStorage.setItem('ziyan_leave', lv); localStorage.setItem('ziyan_expected', ex); } catch(e){}
-    var msg = JSON.stringify({ t: t, leave: lv, expected: ex });
-    if(connected && ws && ws.readyState === 1){ ws.send(buildPublish(topic, msg)); statusEl.className='ok'; statusEl.textContent='✓ 已提交，电脑看板即将更新'; }
-    else { connectAndSend(msg); }
-  };
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'1d776dac6dad4c1c9580f44ff7c95057'
+    });
+  }catch(e){}
 })();
+</script></head>
+<body>
+<div id="status">连接中…</div>
+<div class="wrap">
+  <h1>手机同步填写</h1>
+  <p class="desc">本页通过多个公共 MQTT 服务器同时连接，任意一个可用即可同步到你的电脑看板（全程无需访问电脑）。</p>
+
+  <!-- 实时看板内容：手机一打开就能看到电脑当前显示，并随电脑变化实时刷新 -->
+  <div class="live">
+    <div class="cap">当前电脑看板内容（实时）</div>
+    <div class="row"><div class="k">竖排标语/留言</div><div class="v dim" id="liveT">（等待连接…）</div></div>
+    <div class="row"><div class="k">请假学生</div><div class="v dim" id="liveLeave">（等待连接…）</div></div>
+    <div class="row"><div class="k">应到人数</div><div class="v dim" id="liveExp">（等待连接…）</div></div>
+  </div>
+
+  <div class="note">修改后点「提交同步」即可回写到电脑屏幕，所有手机看到的内容一致。提交后约几秒，电脑屏幕与这里都会更新。</div>
+
+  <div class="field">
+    <label>竖排标语 / 留言</label>
+    <textarea id="inT" placeholder="填写后点提交，会同步到电脑屏幕"></textarea>
+    <div class="tip">留空 = 不修改（保留电脑当前内容）；输入一个空格 = 设置为「无」（清空该栏）。</div>
+  </div>
+  <div class="field">
+    <label>请假学生（逗号分隔）</label>
+    <input id="inLeave" placeholder="如：张三、李四">
+    <div class="tip">留空 = 不修改；输入一个空格 = 设置为「无」（无学生请假）。</div>
+  </div>
+  <div class="field">
+    <label>应到人数（可选）</label>
+    <input id="inExp" placeholder="如：52">
+    <div class="tip">留空 = 不修改；输入一个空格 = 设置为「无」（清空人数）。</div>
+  </div>
+
+  <button id="btnSync" class="submit">提交同步</button>
+  <button id="btnReload" class="reload">↺ 用电脑最新内容重填（放弃未提交的修改）</button>
+  <div class="hint" id="hint"></div>
+  <div class="links" id="links"></div>
+
+  <div class="qq">
+    <div class="t">软件更新 / 问题反馈，欢迎加入 QQ 群</div>
+    <b>1074644803</b>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+  var params = new URLSearchParams(location.search);
+  var T = (params.get('t') || '').trim();
+  var MT = T ? (T + '_scr') : '';   // 屏幕实时推送主题
+  // 同时订阅基础主题 T（含 retain 快照，打开即显示）与 T_scr（实时推送），任一到达即刷新看板
+  var SUB_TOPICS = [];
+  if (T) SUB_TOPICS.push(T);
+  if (MT) SUB_TOPICS.push(MT);
+  var status = document.getElementById('status');
+  var inT = document.getElementById('inT');
+  var inLeave = document.getElementById('inLeave');
+  var inExp = document.getElementById('inExp');
+  var hint = document.getElementById('hint');
+  var foot = document.getElementById('foot');
+  var links = document.getElementById('links');
+  var btnSync = document.getElementById('btnSync');
+  var liveT = document.getElementById('liveT');
+  var liveLeave = document.getElementById('liveLeave');
+  var liveExp = document.getElementById('liveExp');
+
+  var last = { t:'', leave:'', expected:'' };
+  var inputsLoaded = false;
+  // 用户已手动编辑过的字段，不再被电脑推送的消息覆盖，避免“刚填完又被旧值顶回”
+  var dirty = { t:false, leave:false, expected:false };
+  inT.addEventListener('input', function(){ dirty.t = true; });
+  inLeave.addEventListener('input', function(){ dirty.leave = true; });
+  inExp.addEventListener('input', function(){ dirty.expected = true; });
+
+  // ==== 多重保险：同时连接多个公共 MQTT 服务器，任一可用即工作 ====
+  var BROKERS = [
+    { name:'emqx',    url:'wss://broker.emqx.io:8084/mqtt' },
+    { name:'eclipse', url:'wss://mqtt.eclipseprojects.io:443/mqtt' }
+  ];
+  var conns = [];
+
+  function setStatus(txt, cls){ status.textContent = txt; status.className = cls || ''; }
+
+  if (!T) {
+    setStatus('未检测到同步口令（?t=），请用电脑端二维码打开本页', 'err');
+    btnSync.disabled = true;
+    foot.textContent = '打开方式：电脑端右键卡片 → 手机扫码同步 → 用微信扫二维码。';
+  } else {
+    foot.textContent = '同步口令：' + T;
+  }
+
+  // ---- 最小 MQTT 3.1.1 over WebSocket（与电脑端同协议）----
+  function u(str){ return Array.from(new TextEncoder().encode(str)); }
+  function v(n){ var r=[]; do { var b=n&127; n>>=7; if(n) b|=128; r.push(b); } while(n); return r; }
+  function C(){
+    var p=u('MQTT'), c=u('mb'+Date.now()+Math.random().toString(36).slice(2,6));
+    var h=[0,4].concat(p,[4,2,0,60]);
+    var d=[(c.length>>8)&255,c.length&255].concat(c);
+    return new Uint8Array([16].concat(v(h.length+d.length),h,d));
+  }
+  function S(){
+    var body=[0,1];                       // 包标识
+    for (var k=0; k<SUB_TOPICS.length; k++){
+      var a=u(SUB_TOPICS[k]);
+      var pl=[(a.length>>8)&255,a.length&255].concat(a);
+      pl.push(0);                          // QoS 0
+      body=body.concat(pl);
+    }
+    return new Uint8Array([130].concat(v(body.length),body));
+  }
+  function P(topic, obj, retain){
+    var a=u(topic);
+    var tf=[(a.length>>8)&255,a.length&255].concat(a);
+    var pb=u(JSON.stringify(obj));
+    var body=tf.concat(pb);
+    var fh=0x30 | (retain?1:0);
+    return new Uint8Array([fh].concat(v(body.length),body));
+  }
+  function parsePublish(buf){
+    var off=1, mult=1, len=0, b;
+    do { b=buf[off++]; len+=(b&127)*mult; mult*=128; } while(b&128);
+    var tlen=(buf[off]<<8)|buf[off+1]; off+=2;
+    var topic=decode(buf.slice(off, off+tlen)); off+=tlen;
+    if(((buf[0]>>1)&3)>0){ off+=2; }
+    var payload=decode(buf.slice(off));
+    return { topic:topic, payload:payload };
+  }
+  function decode(arr){ try { return new TextDecoder('utf-8',{fatal:false}).decode(arr); } catch(e){ return ''; } }
+
+  function anyReady(){ for(var i=0;i<conns.length;i++){ if(conns[i].ready) return true; } return false; }
+
+  function renderLive(){
+    if(last.t && last.t.trim()!==''){ liveT.textContent=last.t; liveT.className='v'; }
+    else { liveT.textContent='（无）'; liveT.className='v dim'; }
+    if(last.leave && last.leave.trim()!==''){ liveLeave.textContent=last.leave; liveLeave.className='v'; }
+    else { liveLeave.textContent='（无）'; liveLeave.className='v dim'; }
+    if(last.expected && last.expected.trim()!==''){ liveExp.textContent=last.expected; liveExp.className='v'; }
+    else { liveExp.textContent='（未设置）'; liveExp.className='v dim'; }
+  }
+
+  function refreshStatus(){
+    var okN = 0; for(var i=0;i<conns.length;i++){ if(conns[i].ready) okN++; }
+    if(okN>0) setStatus('已连接 · 实时同步中（'+okN+'/'+conns.length+' 线路）', 'ok');
+    else setStatus('连接中…（多线路重试中）', '');
+    var html='';
+    for(var j=0;j<conns.length;j++){
+      html += '<span class="pill'+(conns[j].ready?' on':'')+'">'+conns[j].cfg.name+(conns[j].ready?' 已连接':' 连接中')+'</span>';
+    }
+    links.innerHTML = html;
+    btnSync.disabled = !T || !anyReady();
+  }
+
+  function openConn(cn){
+    if(!T) return;
+    try {
+      var ws = new WebSocket(cn.cfg.url, ['mqtt']);
+      cn.ws = ws;
+      ws.binaryType='arraybuffer';
+      ws.onopen=function(){ cn.retry=0; ws.send(C()); };
+      ws.onmessage=function(ev){
+        var buf=new Uint8Array(ev.data);
+        var type=buf[0]>>4;
+        if(type===2){ ws.send(S()); cn.ready=true; refreshStatus(); }
+        else if(type===3){
+          try {
+            var p=parsePublish(buf);
+            if(p.topic===T || p.topic===MT){
+              var o={}; try { o=JSON.parse(p.payload)||{}; } catch(e){}
+              onData(o);
+            }
+          } catch(e){}
+        }
+      };
+      ws.onclose=function(){ cn.ready=false; refreshStatus(); scheduleReconnect(cn); };
+      ws.onerror=function(){ cn.ready=false; refreshStatus(); try{ws.close();}catch(e){} };
+    } catch(err){ cn.ready=false; refreshStatus(); scheduleReconnect(cn); }
+  }
+
+  function scheduleReconnect(cn){
+    if(cn.timer) clearTimeout(cn.timer);
+    cn.retry++;
+    cn.timer=setTimeout(function(){ openConn(cn); }, Math.min(8000, 1000*cn.retry));
+  }
+
+  function connectAll(){
+    for(var i=0;i<BROKERS.length;i++){
+      var cn={ cfg:BROKERS[i], ws:null, ready:false, retry:0, timer:null };
+      conns.push(cn);
+      openConn(cn);
+    }
+    refreshStatus();
+  }
+
+  function onData(o){
+    if(o.t!=null) last.t = o.t;
+    if(o.leave!=null) last.leave = o.leave;
+    if(o.expected!=null) last.expected = o.expected;
+    renderLive();                                  // 实时看板内容始终随电脑刷新
+    if(!inputsLoaded){                             // 首次：把当前内容填入输入框
+      inT.value = last.t || '';
+      inLeave.value = last.leave || '';
+      inExp.value = last.expected || '';
+      inputsLoaded = true;
+    } else {                                        // 之后：仅在该字段未被用户手动编辑过时跟随电脑更新，避免覆盖手动填写
+      if(!dirty.t) inT.value = last.t || '';
+      if(!dirty.leave) inLeave.value = last.leave || '';
+      if(!dirty.expected) inExp.value = last.expected || '';
+    }
+    refreshStatus();
+  }
+
+  function submit(){
+    if(!anyReady()){ setStatus('暂无可用线路，无法提交','err'); hint.textContent='请等待顶部显示「已连接」后再提交。'; return; }
+    var t = inT.value;
+    var leave = inLeave.value;
+    var expected = inExp.value;
+    last.t = t; last.leave = leave; last.expected = expected;
+    var pkt = P(T, { t:t, leave:leave, expected:expected }, true);
+    var sent = 0;
+    for(var i=0;i<conns.length;i++){
+      var cn=conns[i];
+      if(cn.ready && cn.ws && cn.ws.readyState===1){
+        try { cn.ws.send(pkt); sent++; } catch(e){}
+      }
+    }
+    if(sent>0){
+      setStatus('已提交（'+sent+' 线路）· 同步中…', 'ok');
+      hint.textContent = '已发送，几秒后电脑屏幕与所有手机同步更新。';
+    } else {
+      setStatus('提交失败，线路不可用','err');
+      hint.textContent='请检查网络后重试。';
+    }
+  }
+
+  btnSync.addEventListener('click', submit);
+  function reloadFromPC(){
+    dirty.t=false; dirty.leave=false; dirty.expected=false;
+    inT.value = last.t || '';
+    inLeave.value = last.leave || '';
+    inExp.value = last.expected || '';
+    hint.textContent = '已用电脑当前内容重填输入框（放弃你未提交的手动修改）。';
+  }
+  btnReload.addEventListener('click', reloadFromPC);
+  connectAll();
 </script>
 </body>
 </html>
